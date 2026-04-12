@@ -1,0 +1,122 @@
+version: '3.8'
+
+services:
+  # --- DATABASES ---
+  # Sử dụng các instance PostgreSQL riêng biệt cho từng service để đảm bảo tính độc lập
+  db-auth:
+    image: postgres:15-alpine
+    container_name: edusmart-db-auth
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: auth_db
+    ports:
+      - "5431:5432"
+    volumes:
+      - auth_data:/var/lib/postgresql/data
+
+  db-course:
+    image: postgres:15-alpine
+    container_name: edusmart-db-course
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: course_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - course_data:/var/lib/postgresql/data
+
+  db-progress:
+    image: postgres:15-alpine
+    container_name: edusmart-db-progress
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: progress_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - progress_data:/var/lib/postgresql/data
+
+  # --- MICROSERVICES ---
+  auth-service:
+    build: ./services/auth-service
+    container_name: edusmart-auth-service
+    ports:
+      - "5001:5001"
+    environment:
+      DATABASE_URL: "postgresql://user:password@db-auth:5432/auth_db"
+      JWT_SECRET: "your_jwt_secret_key"
+    depends_on:
+      - db-auth
+
+  course-service:
+    build: ./services/course-service
+    container_name: edusmart-course-service
+    ports:
+      - "5002:5002"
+    environment:
+      DATABASE_URL: "postgresql://user:password@db-course:5432/course_db"
+    depends_on:
+      - db-course
+
+  progress-service:
+    build: ./services/progress-service
+    container_name: edusmart-progress-service
+    ports:
+      - "5003:5003"
+    environment:
+      DATABASE_URL: "postgresql://user:password@db-progress:5432/progress_db"
+      COURSE_SERVICE_URL: "http://course-service:5002"
+    depends_on:
+      - db-progress
+
+  ai-tutor-service:
+    build: ./services/ai-tutor-service
+    container_name: edusmart-ai-tutor-service
+    ports:
+      - "5004:5004"
+    environment:
+      GROQ_API_KEY: "your_groq_api_key_here"
+      COURSE_SERVICE_URL: "http://course-service:5002"
+    depends_on:
+      - course-service
+
+  certificate-service:
+    build: ./services/certificate-service
+    container_name: edusmart-certificate-service
+    ports:
+      - "5005:5005"
+    environment:
+      PROGRESS_SERVICE_URL: "http://progress-service:5003"
+    depends_on:
+      - progress-service
+
+  # --- API GATEWAY ---
+  api-gateway:
+    build: ./api-gateway
+    container_name: edusmart-api-gateway
+    ports:
+      - "4000:4000"
+    environment:
+      AUTH_SERVICE_URL: "http://auth-service:5001"
+      COURSE_SERVICE_URL: "http://course-service:5002"
+      PROGRESS_SERVICE_URL: "http://progress-service:5003"
+      AI_TUTOR_SERVICE_URL: "http://ai-tutor-service:5004"
+      CERTIFICATE_SERVICE_URL: "http://certificate-service:5005"
+    depends_on:
+      - auth-service
+      - course-service
+      - progress-service
+      - ai-tutor-service
+      - certificate-service
+
+networks:
+  default:
+    name: edusmart-network
+
+volumes:
+  auth_data:
+  course_data:
+  progress_data:
