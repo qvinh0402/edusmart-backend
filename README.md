@@ -1,4 +1,3 @@
-```markdown
 # EduSmart - Microservices Backend System
 
 Hệ thống Backend của EduSmart được thiết kế theo kiến trúc Microservices để đảm bảo tính mở rộng, độc lập và hiệu suất cao.
