@@ -1,0 +1,72 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  // url = env("DATABASE_URL")  <-- Xóa hoặc comment dòng này lại
+}
+
+// Định nghĩa loại nội dung của bài học
+enum ContentType {
+  VIDEO
+  DOCUMENT
+  QUIZ
+}
+
+model Course {
+  id            String    @id @default(uuid())
+  title         String
+  description   String?   @db.Text
+  thumbnailUrl  String?
+  
+  // Trong Microservices, ta chỉ lưu ID của giảng viên 
+  // Thông tin chi tiết sẽ do Auth Service quản lý
+  instructorId  String    
+  
+  sections      Section[]
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@map("courses") // Đổi tên bảng trong DB thành số nhiều cho chuẩn
+}
+
+model Section {
+  id        String   @id @default(uuid())
+  title     String
+  order     Int      // Để sắp xếp thứ tự các chương
+
+  courseId  String
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  
+  lessons   Lesson[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("sections")
+}
+
+model Lesson {
+  id              String      @id @default(uuid())
+  title           String
+  contentType     ContentType @default(VIDEO)
+  videoUrl        String?
+  
+  // Trường quan trọng: Lưu nội dung bài học để AI Tutor có thể đọc và trả lời
+  markdownContent String?     @db.Text 
+  
+  order           Int         // Để sắp xếp thứ tự các bài học trong một chương
+
+  sectionId       String
+  section         Section     @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@map("lessons")
+}
